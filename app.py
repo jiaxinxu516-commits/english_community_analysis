@@ -218,7 +218,7 @@ try:
             "probably","maybe","quite",
             "first","last","next",
             "thank","thanks",
-            "please","help",
+            "please","help", "other", "without", "their", "because", 
 
             "new",
             "max",

@@ -167,22 +167,155 @@ try:
             st.plotly_chart(fig_hour, use_container_width=True)
 
     # ================= TAB 2: LANGUAGE =================
+
     with tab2:
-        st.subheader("🕵️‍♂️ 关键词深度下钻与热力图")
-        all_text = " ".join(df['title'].dropna().tolist() + df['selftext'].dropna().tolist()).lower()
-        words = re.findall(r'\b[a-z]{3,}\b', all_text)
-        filtered_words = [w for w in words if w not in STOPWORDS]
-        word_counts = collections.Counter(filtered_words)
-        df_words = pd.DataFrame(word_counts.most_common(25), columns=['Word', 'Count'])
-        
-        l_chart, r_table = st.columns([2, 1])
-        with l_chart:
-            fig_words = px.bar(df_words, x='Count', y='Word', orientation='h', template="plotly_dark")
-            fig_words.update_traces(marker_color='#ffaa00')
-            fig_words.update_layout(yaxis={'categoryorder':'total ascending'})
-            st.plotly_chart(fig_words, use_container_width=True)
-        with r_table:
-            st.dataframe(df_words, use_container_width=True, hide_index=True)
+
+        st.subheader("🕵️‍♂️ Topic Discovery & Keyword Mining")
+
+        # 合并所有文本
+        all_text = " ".join(
+            df["title"].fillna("").tolist()
+            + df["selftext"].fillna("").tolist()
+        ).lower()
+
+        # 删除 URL
+        all_text = re.sub(
+            r"http\S+|www\S+",
+            "",
+            all_text
+        )
+
+        # 提取英文单词
+        words = re.findall(
+            r"\b[a-z]{3,}\b",
+            all_text
+        )
+
+        # 通用停用词
+        EXTRA_STOPWORDS = {
+
+            "all","now","only","then","into",
+            "off","here","there","where",
+            "which","while","than","those",
+            "these","every","each","both",
+            "either","another","around",
+            "after","before","during",
+            "don", "does",
+
+            "them","use","using","used",
+            "also","would","could","should",
+            "really","much","many",
+            "make","made",
+            "getting","got","going","go",
+            "need","needs","needed",
+            "see","seen","look","looking",
+            "work","works","working",
+            "way","well","good","bad",
+            "thing","things","something",
+            "someone","people","person",
+            "still","already","actually",
+            "probably","maybe","quite",
+            "first","last","next",
+            "thank","thanks",
+            "please","help",
+
+            "new",
+            "max",
+            "station",
+            "case",
+            "time"
+        }
+        # Rokid/XR领域停用词
+        DOMAIN_STOPWORDS = {
+            "rokid",
+            "glasses",
+            "glass",
+            "ar",
+            "xr",
+            "app",
+            "apps",
+            "reddit",
+            "subreddit",
+            "https",
+            "http",
+            "www",
+            "com"
+        }
+
+        DOMAIN_STOPWORDS.update({
+            "phone",
+            "display",
+            "screen",
+            "device",
+            "video",
+            "android",
+            "iphone",
+            "support",
+            "issue",
+            "problem",
+            "question",
+            "feature",
+            "version",
+            "update"
+        })
+
+        FULL_STOPWORDS = (
+            STOPWORDS
+            | EXTRA_STOPWORDS
+            | DOMAIN_STOPWORDS
+        )
+
+        filtered_words = [
+            w
+            for w in words
+            if w not in FULL_STOPWORDS
+            and len(w) > 2
+        ]
+
+        word_counts = collections.Counter(
+            filtered_words
+        )
+
+        df_words = pd.DataFrame(
+            word_counts.most_common(25),
+            columns=["Word", "Count"]
+        )
+
+        col_chart, col_table = st.columns([2, 1])
+
+        with col_chart:
+
+            fig_words = px.bar(
+                df_words,
+                x="Count",
+                y="Word",
+                orientation="h",
+                template="plotly_dark",
+                title="Top 25 Discussion Topics"
+            )
+
+            fig_words.update_layout(
+                yaxis={
+                    "categoryorder": "total ascending"
+                }
+            )
+
+            fig_words.update_traces(
+                marker_color="#ffaa00"
+            )
+
+            st.plotly_chart(
+                fig_words,
+                use_container_width=True
+            )
+
+        with col_table:
+
+            st.dataframe(
+                df_words,
+                use_container_width=True,
+                hide_index=True
+            )
 
     # ================= TAB 3: SENTIMENT =================
     with tab3:

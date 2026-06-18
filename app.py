@@ -118,13 +118,14 @@ try:
 
     st.markdown("---")
 
-    # 重新编排的四大导航页
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📈 TIME TREND (月/周/日多维趋势)", 
-        "🔤 LANGUAGE (核心词汇下钻)", 
-        "💙 AI SENTIMENT (情绪健康度分析)",
-        "📋 DATA WALL (原始反馈精选墙)"
-    ])
+    # 重新编排的五大导航页
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📈 TIME TREND",
+    "🔤 LANGUAGE",
+    "💙 AI SENTIMENT",
+    "📋 DATA WALL",
+    "🎯 USER INSIGHTS"
+])
 
     # ================= TAB 1: 【全新重写】月/周/日多维时间趋势 =================
     with tab1:
@@ -341,6 +342,134 @@ try:
             with st.expander(f"{color} 赞同数: {row['score']} | {row['title']}"):
                 st.markdown(f"**作者：** `{row['author_name']}`  |  **日期：** {row['created_str']}  |  **星期：** {row.get('Day_of_Week', '未知')}")
                 st.info(row['selftext'] if row['selftext'] else "（该贴无正文，仅有标题）")
+
+    # ================= TAB 4: DATA WALL =================
+    with tab5:
+
+        st.subheader("🎯 User Insight Mining")
+
+        # 喜欢
+        like_keywords = [
+            "love",
+            "like",
+            "great",
+            "awesome",
+            "amazing",
+            "excellent",
+            "good",
+            "best",
+            "cool",
+            "perfect"
+        ]
+
+        # 吐槽
+        complaint_keywords = [
+            "bad",
+            "hate",
+            "issue",
+            "problem",
+            "bug",
+            "broken",
+            "terrible",
+            "worst",
+            "annoying",
+            "disappointed"
+        ]
+
+        # 建议
+        suggestion_keywords = [
+            "should",
+            "could",
+            "wish",
+            "suggest",
+            "recommend",
+            "feature",
+            "improve",
+            "would like",
+            "please add",
+            "need"
+        ]
+
+        all_text = (
+            df["title"].fillna("")
+            + " "
+            + df["selftext"].fillna("")
+        )
+
+        liked_posts = df[
+            all_text.str.contains(
+                "|".join(like_keywords),
+                case=False,
+                na=False
+            )
+        ]
+
+        complaint_posts = df[
+            all_text.str.contains(
+                "|".join(complaint_keywords),
+                case=False,
+                na=False
+            )
+        ]
+
+        suggestion_posts = df[
+            all_text.str.contains(
+                "|".join(suggestion_keywords),
+                case=False,
+                na=False
+            )
+        ]
+
+        c1, c2, c3 = st.columns(3)
+
+        c1.metric(
+            "❤️ Positive Mentions",
+            len(liked_posts)
+        )
+
+        c2.metric(
+            "😡 Complaints",
+            len(complaint_posts)
+        )
+
+        c3.metric(
+            "💡 Suggestions",
+            len(suggestion_posts)
+        )
+
+        st.markdown("---")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+
+            st.markdown("### ❤️ Most Loved")
+
+            for _, row in liked_posts.head(5).iterrows():
+
+                st.info(
+                    row["title"]
+                )
+
+        with col2:
+
+            st.markdown("### 😡 Top Complaints")
+
+            for _, row in complaint_posts.head(5).iterrows():
+
+                st.warning(
+                    row["title"]
+                )
+
+        with col3:
+
+            st.markdown("### 💡 Feature Requests")
+
+            for _, row in suggestion_posts.head(5).iterrows():
+
+                st.success(
+                    row["title"]
+                )
 
 except Exception as e:
     st.error(f"看板更新失败，错误信息: {e}")

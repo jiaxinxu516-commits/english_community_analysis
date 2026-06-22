@@ -108,13 +108,64 @@ try:
     st.title("🕶️ Rokid Community AI Analytics Insight Pro")
     st.caption("融合大语言模型 (LLM) 与多维时间周期性矩阵的海外极客生态看板")
     
-    m1, m2, m3, m4 = st.columns(4)
-    with m1: st.metric("📦 当前筛选帖数", len(df))
-    with m2: st.metric("🔥 互动总点赞数", int(df['score'].sum()))
-    with m3: st.metric("💬 累计评论互动", int(df['num_comments'].sum()))
+    m1, m2, m3, m4, m5 = st.columns(5)
+
+
+    with m1:
+        st.metric(
+            "📦 当前筛选帖数",
+            len(df)
+        )
+
+    with m2:
+        st.metric(
+            "🔥 互动总点赞数",
+            int(df["score"].sum())
+        )
+
+    with m3:
+        st.metric(
+            "💬 累计评论互动",
+            int(df["num_comments"].sum())
+        )
+
+    neg_rate = (
+        (df_raw["sentiment"] == "negative").sum()
+        / len(df_raw)
+    )
+
+    pos_rate = (
+        (df_raw["sentiment"] == "positive").sum()
+        / len(df_raw)
+    )
+
     with m4:
-        neg_rate = f"{round((df_raw['sentiment']=='negative').sum() / len(df_raw) * 100, 1)}%"
-        st.metric("🚨 社区整体负面率", neg_rate)
+        st.metric(
+            "🚨 社区整体负面率",
+            f"{round(neg_rate * 100,1)}%"
+        )
+
+        health_score = max(
+        0,
+        min(
+            100,
+            round(
+                (
+                    (df_raw['sentiment'] == 'positive').sum() / len(df_raw) * 100
+                )
+                - (
+                    (df_raw['sentiment'] == 'negative').sum() / len(df_raw) * 50
+                )
+                + 50
+            )
+        )
+    )
+
+    with m5:
+        st.metric(
+            "💚 Health Score",
+            f"{health_score}/100"
+        )
 
     st.markdown("---")
 
@@ -348,128 +399,128 @@ try:
 
         st.subheader("🎯 User Insight Mining")
 
-        # 喜欢
-        like_keywords = [
-            "love",
-            "like",
-            "great",
-            "awesome",
-            "amazing",
-            "excellent",
-            "good",
-            "best",
-            "cool",
-            "perfect"
-        ]
+        complaint_topics = {
+            "battery": 0,
+            "translation": 0,
+            "navigation": 0,
+            "display": 0,
+            "app": 0,
+            "connection": 0
+        }
 
-        # 吐槽
-        complaint_keywords = [
-            "bad",
-            "hate",
-            "issue",
-            "problem",
-            "bug",
-            "broken",
-            "terrible",
-            "worst",
-            "annoying",
-            "disappointed"
-        ]
+        request_topics = {
+            "google maps": 0,
+            "steam deck": 0,
+            "spotify": 0,
+            "translation": 0,
+            "dark mode": 0,
+            "android": 0
+        }
 
-        # 建议
-        suggestion_keywords = [
-            "should",
-            "could",
-            "wish",
-            "suggest",
-            "recommend",
-            "feature",
-            "improve",
-            "would like",
-            "please add",
-            "need"
-        ]
-
-        all_text = (
+        all_posts = (
             df["title"].fillna("")
             + " "
             + df["selftext"].fillna("")
         )
 
-        liked_posts = df[
-            all_text.str.contains(
-                "|".join(like_keywords),
-                case=False,
-                na=False
-            )
-        ]
+        for text in all_posts:
 
-        complaint_posts = df[
-            all_text.str.contains(
-                "|".join(complaint_keywords),
-                case=False,
-                na=False
-            )
-        ]
+            text = text.lower()
 
-        suggestion_posts = df[
-            all_text.str.contains(
-                "|".join(suggestion_keywords),
-                case=False,
-                na=False
-            )
-        ]
+            for topic in complaint_topics:
+                if topic in text:
+                    complaint_topics[topic] += 1
 
-        c1, c2, c3 = st.columns(3)
+            for topic in request_topics:
+                if topic in text:
+                    request_topics[topic] += 1
 
-        c1.metric(
-            "❤️ Positive Mentions",
-            len(liked_posts)
+        df_complaints = pd.DataFrame(
+            complaint_topics.items(),
+            columns=["Topic", "Count"]
+        ).sort_values(
+            "Count",
+            ascending=False
         )
 
-        c2.metric(
-            "😡 Complaints",
-            len(complaint_posts)
+        df_requests = pd.DataFrame(
+            request_topics.items(),
+            columns=["Topic", "Count"]
+        ).sort_values(
+            "Count",
+            ascending=False
         )
 
-        c3.metric(
-            "💡 Suggestions",
-            len(suggestion_posts)
-        )
-
-        st.markdown("---")
-
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
 
         with col1:
 
-            st.markdown("### ❤️ Most Loved")
+            st.markdown("## 😡 Top Complaints")
 
-            for _, row in liked_posts.head(5).iterrows():
+            fig_complaints = px.bar(
+                df_complaints,
+                x="Count",
+                y="Topic",
+                orientation="h",
+                template="plotly_dark",
+                color="Count"
+            )
 
-                st.info(
-                    row["title"]
-                )
+            st.plotly_chart(
+                fig_complaints,
+                use_container_width=True
+            )
 
         with col2:
 
-            st.markdown("### 😡 Top Complaints")
+            st.markdown("## 💡 Feature Requests")
 
-            for _, row in complaint_posts.head(5).iterrows():
+            fig_requests = px.bar(
+                df_requests,
+                x="Count",
+                y="Topic",
+                orientation="h",
+                template="plotly_dark",
+                color="Count"
+            )
 
-                st.warning(
-                    row["title"]
-                )
+            st.plotly_chart(
+                fig_requests,
+                use_container_width=True
+            )
 
-        with col3:
+        st.markdown("---")
 
-            st.markdown("### 💡 Feature Requests")
+        st.subheader("🤖 Executive Summary")
 
-            for _, row in suggestion_posts.head(5).iterrows():
+        top_complaint = df_complaints.iloc[0]["Topic"]
+        top_request = df_requests.iloc[0]["Topic"]
 
-                st.success(
-                    row["title"]
-                )
+        st.info(
+            f"""
+    ### Community Summary
+
+    Most discussed complaint:
+
+    ➡️ {top_complaint}
+
+    Most requested feature:
+
+    ➡️ {top_request}
+
+    Community health score:
+
+    ➡️ {health_score}/100
+
+    Recommended product focus:
+
+    1. Improve {top_complaint}
+    2. Evaluate {top_request}
+    3. Continue monitoring community sentiment
+    """
+        )
 
 except Exception as e:
     st.error(f"看板更新失败，错误信息: {e}")
+
+

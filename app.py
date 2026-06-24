@@ -6,6 +6,29 @@ import collections
 import re
 import os
 
+
+st.set_page_config(
+    layout="wide",
+    page_title="Rokid Reddit AI Dashboard"
+)
+
+community_name = st.sidebar.text_input(
+    "Community Name",
+    "Rokid Community"
+)
+
+uploaded_file = st.sidebar.file_uploader(
+    "Upload JSON",
+    type=["json"]
+)
+
+if uploaded_file is None:
+    st.stop()
+
+st.title(
+    f"🕶️ {community_name} Analytics Dashboard"
+)
+
 # 1. 核心环境修复：确保国内下载大模型不卡顿
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 from transformers import pipeline
@@ -27,12 +50,35 @@ def load_sentiment_pipeline():
 
 # 4. 读取数据并进行多维度时间特征提取
 @st.cache_data
-def load_and_analyze_data():
-    file_path = "rokid_official_full_data2.json"
-    with open(file_path, "r", encoding="utf-8") as f:
-        raw_data = json.load(f)
-        
+def load_and_analyze_data(uploaded_file):
+
+    raw_data = json.load(uploaded_file)
+
+    # ========= 自动检测JSON结构 =========
+
+    if len(raw_data) == 0:
+        return pd.DataFrame()
+
+    sample = raw_data[0]
+
+    if "content" in sample:
+        json_type = "reddit"
+
+    elif "message" in sample:
+        json_type = "discord"
+
+    elif "text" in sample:
+        json_type = "generic"
+
+    else:
+        json_type = "unknown"
+
+    print(f"Detected JSON Type: {json_type}")
+
+    # ========= 原来的代码 =========
+
     sentiment_task = load_sentiment_pipeline()
+
     flattened_list = []
     
     # 这里默认跑前 600 条。如果想跑全量，可以把 [:600] 删掉
@@ -68,7 +114,7 @@ def load_and_analyze_data():
         flattened_list.append(row)
         
     df = pd.DataFrame(flattened_list)
-    
+   
     # ======= 【全新升级】深度挖掘时间维度构建特征 =======
     if 'created_str' in df.columns:
         dt_series = pd.to_datetime(df['created_str'])
@@ -85,8 +131,8 @@ def load_and_analyze_data():
     return df
 
 try:
-    with st.spinner("🤖 大模型正在火力全开，提取时间序列特征并进行舆情分析..."):
-        df_raw = load_and_analyze_data()
+    with st.spinner("🤖 Loading and analyzing data..."):
+        df_raw = load_and_analyze_data(uploaded_file)
 
     # ================= 5. 侧边栏 =================
     st.sidebar.title("🎛️ 社区过滤器 (Filters)")
@@ -105,7 +151,7 @@ try:
         df = df[df['title'].str.contains(search_query, case=False) | df['selftext'].str.contains(search_query, case=False)]
 
     # ================= 6. 主视窗 =================
-    st.title("🕶️ Rokid Community AI Analytics Insight Pro")
+    #st.title("🕶️ Rokid Community AI Analytics Insight Pro")
     st.caption("融合大语言模型 (LLM) 与多维时间周期性矩阵的海外极客生态看板")
     
     m1, m2, m3, m4, m5 = st.columns(5)
@@ -180,19 +226,19 @@ try:
 
     # ================= TAB 1: 【全新重写】月/周/日多维时间趋势 =================
     with tab1:
-        st.subheader("⏱️ 宏观与微观时间序列周期性分析 (Time-series & Seasonality)")
+        st.subheader("⏱️ Time-series & Seasonality")
         
         # 1. 第一排：宏观历史趋势（月度 vs 每日）
         c_macro_left, c_macro_right = st.columns(2)
         with c_macro_left:
-            st.markdown("##### 📅 月度大盘推移 (Monthly Trend)")
+            st.markdown("##### 📅 Monthly Trend")
             df_month = df.groupby('Year-Month').size().reset_index(name='Post Count')
             fig_month = px.bar(df_month, x='Year-Month', y='Post Count', template="plotly_dark")
             fig_month.update_traces(marker_color='#a64dff')
             st.plotly_chart(fig_month, use_container_width=True)
             
         with c_macro_right:
-            st.markdown("##### 📆 每日连续波动 (Daily Trend)")
+            st.markdown("##### 📆 Daily Trend")
             df_time = df.groupby('created_date').size().reset_index(name='Count')
             fig_daily = px.line(df_time, x='created_date', y='Count', template="plotly_dark")
             fig_daily.update_traces(line_color='#00ffcc', line_width=2)
@@ -203,14 +249,14 @@ try:
         # 2. 第二排：微观周期规律（周几活跃度 vs 24小时发帖习惯）
         c_micro_left, c_micro_right = st.columns(2)
         with c_micro_left:
-            st.markdown("##### 🗓️ 星期活跃度周期规律 (Weekly Seasonality - Which day is hot?)")
+            st.markdown("##### 🗓️ Weekly Seasonality - Which day is hot?")
             df_week = df.groupby('Day_of_Week').size().reset_index(name='Post Count')
             fig_week = px.bar(df_week, x='Day_of_Week', y='Post Count', template="plotly_dark")
             fig_week.update_traces(marker_color='#ff3399')
             st.plotly_chart(fig_week, use_container_width=True)
             
         with c_micro_right:
-            st.markdown("##### ⏰ 24小时用户在线发帖时间盘 (Daily Hourly Distribution - UTC/Server Time)")
+            st.markdown("##### ⏰ Daily Hourly Distribution - UTC/Server Time")
             df_hour = df.groupby('Hour').size().reset_index(name='Post Count')
             # 使用折线或平滑面积图展现一天之中的用户习惯
             fig_hour = px.area(df_hour, x='Hour', y='Post Count', template="plotly_dark")
